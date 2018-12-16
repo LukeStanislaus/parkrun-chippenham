@@ -1,0 +1,37 @@
+﻿{
+  ""payload"": {
+    ""google"": {
+      ""expectUserResponse"": true,
+      ""richResponse"": {
+        ""items"": [
+          {
+            ""simpleResponse"": {
+              ""textToSpeech"": ""PLACEHOLDER""
+            }
+          }
+        ]
+      },
+      ""userStorage"": ""{\""data\"":{}}"",
+      ""systemIntent"": {
+        ""intent"": ""actions.intent.PERMISSION"",
+        ""data"": {
+          ""@type"": ""type.googleapis.com/google.actions.v2.PermissionValueSpec"",
+          ""optContext"": ""To address you by name and know your location"",
+          ""permissions"": [
+            ""NAME"",
+            ""DEVICE_PRECISE_LOCATION""
+          ]
+        }
+      }
+    }
+  },
+  ""outputContexts"": [
+    {
+      ""name"": ""/contexts/_actions_on_google"",
+      ""lifespanCount"": 99,
+      ""parameters"": {
+        ""data"": ""{}""
+      }
+    }
+  ]
+}
