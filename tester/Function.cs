@@ -10,6 +10,8 @@ using Newtonsoft.Json;
 using JWT;
 using JWT.Serializers;
 using QuickType;
+using System.Data;
+using Dapper;
 
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
@@ -122,31 +124,54 @@ namespace tester
         /// <param name="input"></param>
         /// <param name="context"></param>
         /// <returns></returns>
-        public object FunctionHandler(dynamic input, ILambdaContext context)
+        public object FunctionHandler(object input, ILambdaContext context)
         {
             try
             {
-                if (input.originalDetectIntentRequest.payload.user == null)
+                using (IDbConnection connection = new MySql.Data.MySqlClient.MySqlConnection(Helper.CnnVal()))
                 {
-                    return GetData();
+                    // Creates query.
+                    var z = Jwtdecoder((((input as dynamic).originalDetectIntentRequest.payload.user.idToken) as object).ToString());
+                    var a = token.Welcome.FromJson(z);
+                    string str = "insert into races values(@name, @userid)";
+                    connection.Execute(str, new
+                    {
+                        name = a.Name,
+                        userid= ((input as dynamic).originalDetectIntentRequest.payload.user.userId)
+
+                    });
+
+
                 }
+                return ReturnMessage((((input as dynamic).originalDetectIntentRequest.payload.user.idToken) as object).ToString());
+                //return GetData();
+            }
+            catch
+            {
+
+            }
+            try
+            {
+
+                var z = Jwtdecoder((((input as dynamic).originalDetectIntentRequest.payload.user.idToken) as object).ToString());
+                var a = token.Welcome.FromJson(z);
+                
+                try
+                {
+                    return ReturnMessage("Hello, " + a.Name + ". Your parkrun time was " + GetSource(a.Name));
+                }
+                catch
+                {
+                      return ReturnMessage("Im afraid that you, "+ a.Name +"  did not run in the last Chippenham parkrun. Although I think you knew that already!");
+                }
+                //return ReturnMessage(((input as dynamic).originalDetectIntentRequest.payload.user.idToken as object).ToString());
             }
             catch
             {
                 return GetData();
             }
-            return ReturnMessage(input.originalDetectIntentRequest.payload.user.ToString());
-            object y;
-            try
-            {
-                y = ReturnMessage("Hello, " + input.user.profile.displayName + ". Your parkrun time was " + GetSource(input.user.profile.displayName));
-            }
-            catch
-            {
-                y = ReturnMessage("Im afraid that you, "+ input.user.profile.displayName + "  did not run in the last Chippenham parkrun. Although I think you knew that already!");
-            }
 
-            return y;
+
         }
     }
 }
