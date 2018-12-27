@@ -1,17 +1,13 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Threading.Tasks;
-using HtmlAgilityPack;
 using Amazon.Lambda.Core;
-using Newtonsoft.Json;
+using Dapper;
+using HtmlAgilityPack;
 using JWT;
 using JWT.Serializers;
-using QuickType;
+using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
 using System.Data;
-using Dapper;
+using System.Linq;
 
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
@@ -23,9 +19,6 @@ namespace tester
     {
         public static string Jwtdecoder(string token)
         {
-            //const string token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJjbGFpbTEiOjAsImNsYWltMiI6ImNsYWltMi12YWx1ZSJ9.8pwBI_HtXqI3UgQHQ_rDRnSQRxFL1SR8fbQoS-5kM5s";
-            const string secret = "260370628002-a90up4j8nbbees70evkgcp61a9mu4pfl.apps.googleusercontent.com";
-
             try
             {
                 IJsonSerializer serializer = new JsonNetSerializer();
@@ -36,7 +29,7 @@ namespace tester
 
 
                 //var json = decoder.Decode(token, secret, verify: true);
-                var json = decoder.Decode(token);
+                string json = decoder.Decode(token);
                 return json;
             }
             catch (TokenExpiredException)
@@ -50,6 +43,8 @@ namespace tester
             return "";
         }
         private const string RequestUriString = "http://www.parkrun.org.uk/chippenham/results/latestresults/";
+
+        private const string RequestUriStringAthleteNumber = "http://www.parkrun.org.uk/chippenham/results/athletehistory/?athleteNumber=";
         public static object GetData()
         {
             return JsonConvert.DeserializeObject(@"{
@@ -101,22 +96,50 @@ namespace tester
   }
 }");
         }
+        public static string GetLast(string name)
+        {
+            int athleteNumber;
+            using (IDbConnection connection = new MySql.Data.MySqlClient.MySqlConnection(Helper.CnnVal()))
+            {
+
+                athleteNumber = connection.Query<int>("select athletenumber from nameathletenumber where name=@name1", new
+                {
+                    name1 = name
+
+
+                }).First();
+
+            }
+
+
+            HtmlWeb web = new HtmlWeb();
+
+            HtmlDocument doc1 = web.Load(RequestUriStringAthleteNumber + athleteNumber);
+            List<HtmlNode> headername1 = doc1.DocumentNode.SelectNodes("//table[@id='results']").ToList();
+            HtmlNode item1 = headername1[2];
+
+            string z = item1.LastChild.ChildNodes[0].ChildNodes[3].InnerText;
+
+            return z;
+        }
+
         public static string GetSource(string name)
         {
-            var name1 = name.Split(" ");
-            var name2 = name1[0] + name1[1].ToUpper();
+            string[] name1 = name.Split(" ");
+            string name2 = name1[0] + " " + name1[1].ToUpper();
             HtmlWeb web = new HtmlWeb();
             HtmlDocument doc = web.Load(RequestUriString);
-            var headername = doc.DocumentNode.SelectNodes("//table[@id='results']").ToList();
+            List<HtmlNode> headername = doc.DocumentNode.SelectNodes("//table[@id='results']").ToList();
             string y = "";
-            foreach (var item in headername)
+
+            foreach (HtmlNode item in headername)
             {
                 y += item.LastChild.ChildNodes.Where(x => x.ChildNodes[1].InnerText == name2).First().ChildNodes[2].InnerText;
             }
 
             return y;
         }
-       
+
 
         /// <summary>
         /// A simple function that takes a string and does a ToUpper
@@ -126,51 +149,78 @@ namespace tester
         /// <returns></returns>
         public object FunctionHandler(object input, ILambdaContext context)
         {
-            try
-            {
-                using (IDbConnection connection = new MySql.Data.MySqlClient.MySqlConnection(Helper.CnnVal()))
-                {
-                    // Creates query.
-                    var z = Jwtdecoder((((input as dynamic).originalDetectIntentRequest.payload.user.idToken) as object).ToString());
-                    var a = token.Welcome.FromJson(z);
-                    string str = "insert into races values(@name, @userid)";
-                    connection.Execute(str, new
-                    {
-                        name = a.Name,
-                        userid= ((input as dynamic).originalDetectIntentRequest.payload.user.userId)
-
-                    });
-
-
-                }
-                return ReturnMessage((((input as dynamic).originalDetectIntentRequest.payload.user.idToken) as object).ToString());
-                //return GetData();
-            }
-            catch
+            if ((((input as dynamic).queryResult.intent.displayName) as object).ToString() == "Default Welcome Intent")
             {
 
-            }
-            try
-            {
-
-                var z = Jwtdecoder((((input as dynamic).originalDetectIntentRequest.payload.user.idToken) as object).ToString());
-                var a = token.Welcome.FromJson(z);
-                
+                string id = ((input as dynamic).originalDetectIntentRequest.payload.user.userId as object).ToString();
                 try
                 {
-                    return ReturnMessage("Hello, " + a.Name + ". Your parkrun time was " + GetSource(a.Name));
+                    var name = GetName(id);
+                    return Reply(name);
                 }
                 catch
                 {
-                      return ReturnMessage("Im afraid that you, "+ a.Name +"  did not run in the last Chippenham parkrun. Although I think you knew that already!");
+
+                    return GetData();
+
                 }
-                //return ReturnMessage(((input as dynamic).originalDetectIntentRequest.payload.user.idToken as object).ToString());
+
+            }
+            else
+            {
+
+                string id = ((input as dynamic).originalDetectIntentRequest.payload.user.userId as object).ToString();
+                string name = ((input as dynamic).originalDetectIntentRequest.payload.user.profile.displayName as object).ToString();
+                SetName(id, name);
+                return Reply(name);
+
+
+            }
+
+
+
+        }
+        public static object Reply(string name)
+        {
+            try
+            {
+                string time = GetSource(name);
+                return ReturnMessage("Your time in the last parkrun is " + time);
+
             }
             catch
             {
-                return GetData();
+                return ReturnMessage("I am afraid that you, " + name + ", did not run in the last parkrun. Your" +
+                     " last time was " + GetLast(name));
             }
+        }
+        public static string GetName(string id)
+        {
+            using (IDbConnection connection = new MySql.Data.MySqlClient.MySqlConnection(Helper.CnnVal()))
+            {
 
+                return connection.Query<string>("select name from useridname where userid = @id1", new
+                {
+                    id1 = id
+
+                }).First();
+
+            }
+        }
+        public static void SetName(string id, string name)
+        {
+            using (IDbConnection connection = new MySql.Data.MySqlClient.MySqlConnection(Helper.CnnVal()))
+            {
+
+                connection.Execute("insert into useridname values(@id1, @name1)", new
+                {
+                    id1 = id,
+                    name1= name
+
+
+                });
+
+            }
 
         }
     }

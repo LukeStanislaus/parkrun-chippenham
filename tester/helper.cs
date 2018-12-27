@@ -4,7 +4,6 @@ using System.Configuration;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using 
 
 namespace tester
 {
@@ -17,7 +16,7 @@ namespace tester
         /// <returns>The SQL connection string.</returns>
         public static string CnnVal()
         {
-            return @"Server=95.146.92.110;Port=3306;Database=parkrun;Uid=root;Pwd=abc123;";
+            return @"Server=yewstock.ddns.net;Port=6791;Database=parkrun;Uid=luke;Pwd=abc123;";
 
         }
 
