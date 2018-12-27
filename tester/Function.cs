@@ -21,6 +21,7 @@ namespace tester
         {
             try
             {
+
                 IJsonSerializer serializer = new JsonNetSerializer();
                 IDateTimeProvider provider = new UtcDateTimeProvider();
                 IJwtValidator validator = new JwtValidator(serializer, provider);
